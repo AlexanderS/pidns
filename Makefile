@@ -1,4 +1,12 @@
+OBJECTS:=pidns.o
+
 all: pidns
 
-%: %.c
-	$(CC) -o $@ $<
+pidns: $(OBJECTS)
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+%: %.o
+	$(CC) $(LDFLAGS) -o $@ $<
+	$(RM) pidns $(OBJECTS)
