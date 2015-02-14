@@ -9,4 +9,6 @@ pidns: $(OBJECTS)
 
 %: %.o
 	$(CC) $(LDFLAGS) -o $@ $<
+
+clean:
 	$(RM) pidns $(OBJECTS)
