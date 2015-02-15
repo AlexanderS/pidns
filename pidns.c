@@ -42,10 +42,11 @@ int delete(int argc, char** argv)
 
 void usage(void)
 {
-    puts("Usage: pidns list\n"
-         "       pidns add NAME cmd ...\n"
-         "       pidns exec NAME cmd ...\n"
-         "       pidns delete NAME");
+    fputs("Usage: pidns list\n"
+          "       pidns add NAME cmd ...\n"
+          "       pidns exec NAME cmd ...\n"
+          "       pidns delete NAME\n",
+          stderr);
 }
 
 int main(int argc, char** argv)
