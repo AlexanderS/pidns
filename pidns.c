@@ -1,9 +1,27 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
+
+#define PIDNS_RUN_DIR "/var/run/pidns"
 
 int list(void)
 {
+    struct dirent *entry;
+    DIR *dir;
+
+    dir = opendir(PIDNS_RUN_DIR);
+    if (!dir)
+        return EXIT_SUCCESS;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0)
+            continue;
+        if (strcmp(entry->d_name, "..") == 0)
+            continue;
+        printf("%s\n", entry->d_name);
+    }
+    closedir(dir);
     return EXIT_SUCCESS;
 }
 
