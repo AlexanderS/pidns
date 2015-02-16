@@ -60,7 +60,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (argc <= 1) {
+    if (argc < 2) {
         return list();
     }
 
@@ -74,15 +74,15 @@ int main(int argc, char** argv)
     }
 
     if (strcmp(argv[1], "add") == 0) {
-        return add(argc - 1, argv+1);
+        return add(argc - 2, argv+2);
     }
 
     if (strcmp(argv[1], "exec") == 0) {
-        return exec(argc - 1, argv+1);
+        return exec(argc - 2, argv+2);
     }
 
     if (strcmp(argv[1], "delete") == 0) {
-        return delete(argc - 1, argv+1);
+        return delete(argc - 2, argv+2);
     }
 
     usage();
