@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <errno.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 
 #define PIDNS_RUN_DIR "/var/run/pidns"
 
@@ -37,6 +40,23 @@ int exec(int argc, char** argv)
 
 int delete(int argc, char** argv)
 {
+    const char *name;
+    char pidns_path[MAXPATHLEN];
+
+    if (argc < 1) {
+        fprintf(stderr, "No pidns name specified\n");
+        return EXIT_FAILURE;
+	}
+
+    name = argv[0];
+    snprintf(pidns_path, sizeof(pidns_path), "%s/%s", PIDNS_RUN_DIR, name);
+    umount2(pidns_path, MNT_DETACH);
+    if (unlink(pidns_path) < 0) {
+        fprintf(stderr, "Cannot remove namespace file \"%s\": %s\n",
+                pidns_path, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
 
