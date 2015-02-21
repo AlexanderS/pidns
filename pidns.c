@@ -3,10 +3,23 @@
 #include <string.h>
 #include <dirent.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 
 #define PIDNS_RUN_DIR "/var/run/pidns"
+
+static int namespace_alive(const char *name)
+{
+    char pidns_path[MAXPATHLEN];
+
+    snprintf(pidns_path, sizeof(pidns_path), "%s/%s/pid", PIDNS_RUN_DIR, name);
+    if (access(pidns_path, F_OK) != -1) {
+        return 0;
+    }
+
+    return -1;
+}
 
 static int namespace_cleanup(const char *name)
 {
@@ -35,7 +48,12 @@ int list(void)
             continue;
         if (strcmp(entry->d_name, "..") == 0)
             continue;
-        printf("%s\n", entry->d_name);
+
+        if (namespace_alive(entry->d_name) == 0) {
+            printf("%s\n", entry->d_name);
+        } else {
+            namespace_cleanup(entry->d_name);
+        }
     }
     closedir(dir);
     return EXIT_SUCCESS;
