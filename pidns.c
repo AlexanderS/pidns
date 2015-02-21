@@ -8,6 +8,19 @@
 
 #define PIDNS_RUN_DIR "/var/run/pidns"
 
+static int namespace_cleanup(const char *name)
+{
+    char pidns_path[MAXPATHLEN];
+
+    snprintf(pidns_path, sizeof(pidns_path), "%s/%s", PIDNS_RUN_DIR, name);
+    umount2(pidns_path, MNT_DETACH);
+    if (rmdir(pidns_path) < 0) {
+        return errno;
+    }
+
+    return 0;
+}
+
 int list(void)
 {
     struct dirent *entry;
@@ -41,19 +54,18 @@ int exec(int argc, char** argv)
 int delete(int argc, char** argv)
 {
     const char *name;
-    char pidns_path[MAXPATHLEN];
+    int ret;
 
     if (argc < 1) {
         fprintf(stderr, "No pidns name specified\n");
         return EXIT_FAILURE;
-	}
+    }
 
     name = argv[0];
-    snprintf(pidns_path, sizeof(pidns_path), "%s/%s", PIDNS_RUN_DIR, name);
-    umount2(pidns_path, MNT_DETACH);
-    if (unlink(pidns_path) < 0) {
-        fprintf(stderr, "Cannot remove namespace file \"%s\": %s\n",
-                pidns_path, strerror(errno));
+    ret = namespace_cleanup(name);
+    if (ret < 0) {
+        fprintf(stderr, "Cannot remove namespace \"%s\": %s\n",
+                name, strerror(ret));
         return EXIT_FAILURE;
     }
 
