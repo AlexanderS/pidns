@@ -61,11 +61,45 @@ int list(void)
 
 int add(int argc, char** argv)
 {
+    const char *name, *cmd;
+
+    if (argc < 1) {
+        fprintf(stderr, "No pidns name specified\n");
+        return EXIT_FAILURE;
+    }
+    if (argc < 2) {
+        fprintf(stderr, "No command specified\n");
+        return EXIT_FAILURE;
+    }
+    name = argv[0];
+    cmd = argv[1];
+
+    if (namespace_alive(name) < 0) {
+        namespace_cleanup(name);
+    }
+
     return EXIT_SUCCESS;
 }
 
 int exec(int argc, char** argv)
 {
+    const char *name, *cmd;
+
+    if (argc < 1) {
+        fprintf(stderr, "No pidns name specified\n");
+        return EXIT_FAILURE;
+    }
+    if (argc < 2) {
+        fprintf(stderr, "No command specified\n");
+        return EXIT_FAILURE;
+    }
+    name = argv[0];
+    cmd = argv[1];
+
+    if (namespace_alive(name) < 0) {
+        namespace_cleanup(name);
+    }
+
     return EXIT_SUCCESS;
 }
 
