@@ -73,6 +73,20 @@ static int namespace_cleanup(const char *name)
     return 0;
 }
 
+static int remount_proc(const char *name)
+{
+    if (umount2("/proc", MNT_DETACH) < 0) {
+        fprintf(stderr, "umount of /proc failed: %s\n", strerror(errno));
+        return errno;
+    }
+    if (mount(name, "/proc", "proc", 0, NULL) < 0) {
+        fprintf(stderr, "mount of /proc failed: %s\n", strerror(errno));
+        return errno;
+    }
+
+    return 0;
+}
+
 int list(void)
 {
     struct dirent *entry;
@@ -180,6 +194,11 @@ int add(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    /* Mount a version of /proc that describes the pid namespace */
+    if (remount_proc(name) != 0) {
+        return EXIT_FAILURE;
+    }
+
     if (execvp(cmd, argv + 1) < 0)
         fprintf(stderr, "exec of \"%s\" failed: %s\n",
                 cmd, strerror(errno));
@@ -236,6 +255,11 @@ int exec(int argc, char** argv)
     if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
         fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
                 strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    /* Mount a version of /proc that describes the pid namespace */
+    if (remount_proc(name) != 0) {
         return EXIT_FAILURE;
     }
 
