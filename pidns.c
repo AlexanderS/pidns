@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -25,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/inotify.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -104,6 +106,16 @@ static int remount_proc(const char *name)
     }
 
     return 0;
+}
+
+static int is_pid(const char *str)
+{
+	int ch;
+	for (; (ch = *str); str++) {
+		if (!isdigit(ch))
+			return 0;
+	}
+	return 1;
 }
 
 int list(void)
@@ -310,13 +322,88 @@ int delete(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
+int identify(int argc, char **argv)
+{
+    const char *pidstr;
+    int pidns;
+    char pidns_path[MAXPATHLEN];
+    struct stat pidst;
+    DIR *dir;
+    struct dirent *entry;
+
+    if (argc < 1) {
+        fprintf(stderr, "No pid specified\n");
+        return EXIT_FAILURE;
+    }
+    if (argc > 1) {
+        fprintf(stderr, "extra arguments specified\n");
+        return EXIT_FAILURE;
+    }
+    pidstr = argv[0];
+
+    if (!is_pid(pidstr)) {
+        fprintf(stderr, "Specified string '%s' is not a pid\n",
+                pidstr);
+        return EXIT_FAILURE;
+    }
+
+    snprintf(pidns_path, sizeof(pidns_path), "/proc/%s/ns/pid", pidstr);
+    pidns = open(pidns_path, O_RDONLY);
+    if (pidns < 0) {
+        fprintf(stderr, "Cannot open pid namespace: %s\n",
+                strerror(errno));
+        return EXIT_FAILURE;
+    }
+    if (fstat(pidns, &pidst) < 0) {
+        fprintf(stderr, "Stat of pidns failed: %s\n",
+                strerror(errno));
+        return EXIT_FAILURE;
+    }
+    dir = opendir(PIDNS_RUN_DIR);
+    if (!dir) {
+        /* Succeed treat a missing directory as an empty directory */
+        if (errno == ENOENT) {
+            return EXIT_SUCCESS;
+        }
+
+        fprintf(stderr, "Failed to open directory %s:%s\n",
+                PIDNS_RUN_DIR, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    while ((entry = readdir(dir))) {
+        char path[MAXPATHLEN];
+        struct stat st;
+
+        if (strcmp(entry->d_name, ".") == 0)
+            continue;
+        if (strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        snprintf(path, sizeof(path), "%s/%s/pid", PIDNS_RUN_DIR,
+                 entry->d_name);
+
+        if (stat(path, &st) != 0)
+            continue;
+
+        if ((st.st_dev == pidst.st_dev) &&
+            (st.st_ino == pidst.st_ino)) {
+            printf("%s\n", entry->d_name);
+        }
+    }
+    closedir(dir);
+
+    return EXIT_SUCCESS;
+}
+
 void usage(void)
 {
     fprintf(stderr,
             "Usage: pidns list\n"
             "       pidns add NAME cmd ...\n"
             "       pidns exec NAME cmd ...\n"
-            "       pidns delete NAME\n");
+            "       pidns delete NAME\n"
+            "       pidns identify PID\n");
 }
 
 int main(int argc, char** argv)
@@ -353,6 +440,10 @@ int main(int argc, char** argv)
 
     if (strcmp(argv[1], "delete") == 0) {
         return delete(argc - 2, argv+2);
+    }
+
+    if (strcmp(argv[1], "identify") == 0) {
+        return identify(argc - 2, argv+2);
     }
 
     usage();
