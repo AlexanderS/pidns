@@ -9,8 +9,44 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #define PIDNS_RUN_DIR "/var/run/pidns"
+
+static void continue_as_child(void)
+{
+    pid_t child = fork();
+    int status;
+    pid_t ret;
+
+    if (child < 0) {
+        fprintf(stderr, "Fork failed.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Only the child returns */
+    if (child == 0)
+        return;
+
+    for (;;) {
+        ret = waitpid(child, &status, WUNTRACED);
+        if ((ret == child) && (WIFSTOPPED(status))) {
+            /* The child suspended so suspend us as well */
+            kill(getpid(), SIGSTOP);
+            kill(child, SIGCONT);
+        } else {
+            break;
+        }
+    }
+
+    /* Return the child's exit code if possible */
+    if (WIFEXITED(status)) {
+        exit(WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+        kill(getpid(), WTERMSIG(status));
+    }
+    exit(EXIT_FAILURE);
+}
 
 static int namespace_alive(const char *name)
 {
@@ -123,6 +159,9 @@ int add(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    /* Fork! (only childs are in the new pid namespace) */
+    continue_as_child();
+
     /* Bind the namespace directory to get the pid namespace later */
     if (mount("/proc/self/ns/", pidns_path, "none", MS_BIND, NULL) < 0) {
         fprintf(stderr, "Bind /proc/self/ns/ -> %s failed: %s\n",
@@ -184,6 +223,9 @@ int exec(int argc, char** argv)
                 name, strerror(errno));
         return EXIT_FAILURE;
     }
+
+    /* Fork! (only childs are in the new pid namespace) */
+    continue_as_child();
 
     if (unshare(CLONE_NEWNS) < 0) {
         fprintf(stderr, "unshare failed: %s\n", strerror(errno));
